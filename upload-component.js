@@ -131,12 +131,10 @@
         const fileSize = uploadWidget.querySelector('[data-ft-lib-file-size]');
         const removeButton = uploadWidget.querySelector('[data-ft-lib-remove-file]');
 
-        let multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-multiple-files]');
+        const multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-multiple-files]');
+        
         if (allowMultiple && !multipleFilesContainer) {
-            multipleFilesContainer = document.createElement('div');
-            multipleFilesContainer.setAttribute('data-ft-lib-multiple-files', '');
-            multipleFilesContainer.style.display = 'none';
-            uploadWidget.appendChild(multipleFilesContainer);
+            console.warn('LibFlow: Multiple files enabled but [data-ft-lib-multiple-files] container not found in markup');
         }
 
         uploadWidget.addEventListener('click', function(e) {
@@ -267,48 +265,57 @@
     }
 
     function updateMultipleFilesDisplay(container, files, widget) {
-        container.innerHTML = '';
+        if (!container) return;
 
-        const header = document.createElement('div');
-        header.setAttribute('data-ft-lib-multiple-files-header', '');
-        header.innerHTML = `<strong>${files.length} file${files.length !== 1 ? 's' : ''} selected</strong>`;
-        container.appendChild(header);
+        const header = container.querySelector('[data-ft-lib-multiple-files-header]');
+        const fileList = container.querySelector('[data-ft-lib-multiple-files-list]');
+        const fileItemTemplate = container.querySelector('[data-ft-lib-file-item-template]');
+        const clearAllBtn = container.querySelector('[data-ft-lib-clear-all-files]');
 
-        const fileList = document.createElement('div');
-        fileList.setAttribute('data-ft-lib-multiple-files-list', '');
+        if (!header || !fileList || !fileItemTemplate) {
+            console.warn('LibFlow: Missing required elements in multiple files container');
+            return;
+        }
+
+        if (header) {
+            const headerText = header.querySelector('[data-ft-lib-files-count-text]');
+            if (headerText) {
+                headerText.textContent = `${files.length} file${files.length !== 1 ? 's' : ''} selected`;
+            }
+        }
+
+        const existingItems = fileList.querySelectorAll('[data-ft-lib-file-item]:not([data-ft-lib-file-item-template])');
+        existingItems.forEach(item => item.remove());
 
         files.forEach((file, index) => {
-            const fileItem = document.createElement('div');
-            fileItem.setAttribute('data-ft-lib-file-item', '');
-            fileItem.innerHTML = `
-                <div data-ft-lib-file-item-info>
-                    <div data-ft-lib-file-item-name>${file.name}</div>
-                    <div data-ft-lib-file-item-size>${formatFileSize(file.size)}</div>
-                </div>
-                <button type="button" data-ft-lib-file-item-remove data-file-index="${index}">×</button>
-            `;
+            const fileItem = fileItemTemplate.cloneNode(true);
+            fileItem.removeAttribute('data-ft-lib-file-item-template');
+            fileItem.style.display = '';
 
+            const fileName = fileItem.querySelector('[data-ft-lib-file-item-name]');
+            const fileSize = fileItem.querySelector('[data-ft-lib-file-item-size]');
             const removeBtn = fileItem.querySelector('[data-ft-lib-file-item-remove]');
-            removeBtn.addEventListener('click', function(e) {
-                e.stopPropagation();
-                removeFileFromSelection(widget, index);
-            });
+
+            if (fileName) fileName.textContent = file.name;
+            if (fileSize) fileSize.textContent = formatFileSize(file.size);
+            if (removeBtn) {
+                removeBtn.setAttribute('data-file-index', index);
+                removeBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    removeFileFromSelection(widget, index);
+                });
+            }
 
             fileList.appendChild(fileItem);
         });
 
-        container.appendChild(fileList);
-
-        const clearAllBtn = document.createElement('button');
-        clearAllBtn.type = 'button';
-        clearAllBtn.setAttribute('data-ft-lib-clear-all-files', '');
-        clearAllBtn.textContent = 'Clear All';
-        clearAllBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            clearAllFiles(widget);
-        });
-
-        container.appendChild(clearAllBtn);
+        if (clearAllBtn && !clearAllBtn.hasAttribute('data-ft-lib-event-bound')) {
+            clearAllBtn.setAttribute('data-ft-lib-event-bound', 'true');
+            clearAllBtn.addEventListener('click', function(e) {
+                e.stopPropagation();
+                clearAllFiles(widget);
+            });
+        }
     }
 
     function removeFileFromSelection(widget, indexToRemove) {
