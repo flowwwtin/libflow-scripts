@@ -6,8 +6,25 @@
 
     let mediaInfoInstance = null;
 
+    function loadMediaInfoScript() {
+        return new Promise((resolve, reject) => {
+            if (typeof MediaInfo !== 'undefined') {
+                resolve();
+                return;
+            }
+
+            const script = document.createElement('script');
+            script.src = "https://unpkg.com/mediainfo.js";
+            script.onload = resolve;
+            script.onerror = reject;
+            document.head.appendChild(script);
+        });
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
-        initializeMediaInfo().then(() => {
+        loadMediaInfoScript().then(() => {
+            return initializeMediaInfo();
+        }).then(() => {
             initializeLibFlowUpload();
         }).catch(error => {
             console.error('LibFlow: Failed to initialize MediaInfo:', error);
@@ -33,22 +50,22 @@
     }
 
     function initializeLibFlowUpload() {
-        const uploadForms = document.querySelectorAll('[data-ft-libflow-upload-form]');
+        const uploadForms = document.querySelectorAll('[data-ft-lib-upload-form]');
 
         uploadForms.forEach(form => {
             const fileInput = form.querySelector('input[type="file"]');
-            const uploadWidget = form.querySelector('[data-ft-upload-widget]');
-            const destinationField = form.querySelector('[data-ft-libflow-destination]');
-            const progressBar = form.querySelector('.ft-progress-bar');
-            const progressContainer = form.querySelector('.ft-progress');
+            const uploadWidget = form.querySelector('[data-ft-lib-upload-widget]');
+            const destinationField = form.querySelector('[data-ft-lib-destination]');
+            const progressBar = form.querySelector('[data-ft-lib-progress-bar]');
+            const progressContainer = form.querySelector('[data-ft-lib-progress]');
             const submitButton = form.querySelector('input[type="submit"], button[type="submit"]');
-            const validationTextElement = form.querySelector('[data-ft-validation-text]');
+            const validationTextElement = form.querySelector('[data-ft-lib-validation-text]');
 
-            const folderId = form.getAttribute('data-ft-folder-id');
+            const folderId = form.getAttribute('data-ft-lib-folder-id');
 
-            const isUploadRequired = form.getAttribute('data-ft-libflow-required') === 'true';
+            const isUploadRequired = form.getAttribute('data-ft-lib-required') === 'true';
 
-            const allowMultiple = form.getAttribute('data-ft-multiple-files') === 'true';
+            const allowMultiple = form.getAttribute('data-ft-lib-multiple-files') === 'true';
 
             if (!fileInput || !destinationField) {
                 console.warn('LibFlow: Missing required elements (file input or destination field)');
@@ -107,46 +124,46 @@
 
         if (!uploadWidget) return;
 
-        const uploadContent = uploadWidget.querySelector('.ft-upload-content');
-        const fileInfo = uploadWidget.querySelector('.ft-upload-file-info');
-        const uploadStatus = uploadWidget.querySelector('.ft-upload-status');
-        const fileName = uploadWidget.querySelector('.ft-file-name');
-        const fileSize = uploadWidget.querySelector('.ft-file-size');
-        const removeButton = uploadWidget.querySelector('.ft-remove-file');
+        const uploadContent = uploadWidget.querySelector('[data-ft-lib-upload-content]');
+        const fileInfo = uploadWidget.querySelector('[data-ft-lib-upload-file-info]');
+        const uploadStatus = uploadWidget.querySelector('[data-ft-lib-upload-status]');
+        const fileName = uploadWidget.querySelector('[data-ft-lib-file-name]');
+        const fileSize = uploadWidget.querySelector('[data-ft-lib-file-size]');
+        const removeButton = uploadWidget.querySelector('[data-ft-lib-remove-file]');
 
-        let multipleFilesContainer = uploadWidget.querySelector('.ft-multiple-files');
+        let multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-multiple-files]');
         if (allowMultiple && !multipleFilesContainer) {
             multipleFilesContainer = document.createElement('div');
-            multipleFilesContainer.className = 'ft-multiple-files';
+            multipleFilesContainer.setAttribute('data-ft-lib-multiple-files', '');
             multipleFilesContainer.style.display = 'none';
             uploadWidget.appendChild(multipleFilesContainer);
         }
 
         uploadWidget.addEventListener('click', function(e) {
-            if (!uploadWidget.classList.contains('ft-uploading') &&
-                !e.target.closest('.ft-remove-file') &&
-                !e.target.closest('.ft-file-item-remove')) {
+            if (!uploadWidget.hasAttribute('data-ft-lib-state-uploading') &&
+                !e.target.closest('[data-ft-lib-remove-file]') &&
+                !e.target.closest('[data-ft-lib-file-item-remove]')) {
                 fileInput.click();
             }
         });
 
         uploadWidget.addEventListener('dragover', function(e) {
             e.preventDefault();
-            uploadWidget.classList.add('ft-dragover');
+            uploadWidget.setAttribute('data-ft-lib-state-dragover', '');
         });
 
         uploadWidget.addEventListener('dragleave', function(e) {
             e.preventDefault();
             if (!uploadWidget.contains(e.relatedTarget)) {
-                uploadWidget.classList.remove('ft-dragover');
+                uploadWidget.removeAttribute('data-ft-lib-state-dragover');
             }
         });
 
         uploadWidget.addEventListener('drop', function(e) {
             e.preventDefault();
-            uploadWidget.classList.remove('ft-dragover');
+            uploadWidget.removeAttribute('data-ft-lib-state-dragover');
 
-            if (uploadWidget.classList.contains('ft-uploading')) return;
+            if (uploadWidget.hasAttribute('data-ft-lib-state-uploading')) return;
 
             const files = e.dataTransfer.files;
             if (files.length > 0) {
@@ -219,8 +236,10 @@
     function updateWidgetWithFile(widget, file, elements) {
         const { uploadContent, fileInfo, uploadStatus, fileName, fileSize } = elements;
 
-        widget.classList.add('ft-has-file');
-        widget.classList.remove('ft-dragover', 'ft-uploading', 'ft-has-multiple-files');
+        widget.setAttribute('data-ft-lib-state-has-file', '');
+        widget.removeAttribute('data-ft-lib-state-dragover');
+        widget.removeAttribute('data-ft-lib-state-uploading');
+        widget.removeAttribute('data-ft-lib-state-has-multiple-files');
 
         if (uploadContent) uploadContent.style.display = 'none';
         if (fileInfo) fileInfo.style.display = 'flex';
@@ -233,8 +252,10 @@
     function updateWidgetWithMultipleFiles(widget, files, elements) {
         const { uploadContent, fileInfo, uploadStatus, multipleFilesContainer } = elements;
 
-        widget.classList.add('ft-has-multiple-files');
-        widget.classList.remove('ft-dragover', 'ft-uploading', 'ft-has-file');
+        widget.setAttribute('data-ft-lib-state-has-multiple-files', '');
+        widget.removeAttribute('data-ft-lib-state-dragover');
+        widget.removeAttribute('data-ft-lib-state-uploading');
+        widget.removeAttribute('data-ft-lib-state-has-file');
 
         if (uploadContent) uploadContent.style.display = 'none';
         if (fileInfo) fileInfo.style.display = 'none';
@@ -249,25 +270,25 @@
         container.innerHTML = '';
 
         const header = document.createElement('div');
-        header.className = 'ft-multiple-files-header';
+        header.setAttribute('data-ft-lib-multiple-files-header', '');
         header.innerHTML = `<strong>${files.length} file${files.length !== 1 ? 's' : ''} selected</strong>`;
         container.appendChild(header);
 
         const fileList = document.createElement('div');
-        fileList.className = 'ft-multiple-files-list';
+        fileList.setAttribute('data-ft-lib-multiple-files-list', '');
 
         files.forEach((file, index) => {
             const fileItem = document.createElement('div');
-            fileItem.className = 'ft-file-item';
+            fileItem.setAttribute('data-ft-lib-file-item', '');
             fileItem.innerHTML = `
-                <div class="ft-file-item-info">
-                    <div class="ft-file-item-name">${file.name}</div>
-                    <div class="ft-file-item-size">${formatFileSize(file.size)}</div>
+                <div data-ft-lib-file-item-info>
+                    <div data-ft-lib-file-item-name>${file.name}</div>
+                    <div data-ft-lib-file-item-size>${formatFileSize(file.size)}</div>
                 </div>
-                <button type="button" class="ft-file-item-remove" data-file-index="${index}">×</button>
+                <button type="button" data-ft-lib-file-item-remove data-file-index="${index}">×</button>
             `;
 
-            const removeBtn = fileItem.querySelector('.ft-file-item-remove');
+            const removeBtn = fileItem.querySelector('[data-ft-lib-file-item-remove]');
             removeBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
                 removeFileFromSelection(widget, index);
@@ -280,7 +301,7 @@
 
         const clearAllBtn = document.createElement('button');
         clearAllBtn.type = 'button';
-        clearAllBtn.className = 'ft-clear-all-files';
+        clearAllBtn.setAttribute('data-ft-lib-clear-all-files', '');
         clearAllBtn.textContent = 'Clear All';
         clearAllBtn.addEventListener('click', function(e) {
             e.stopPropagation();
@@ -306,21 +327,24 @@
 
     function clearAllFiles(widget) {
         const fileInput = widget.closest('form').querySelector('input[type="file"]');
-        const destinationField = widget.closest('form').querySelector('[data-ft-libflow-destination]');
+        const destinationField = widget.closest('form').querySelector('[data-ft-lib-destination]');
 
         fileInput.value = '';
         destinationField.value = '';
 
-        const uploadContent = widget.querySelector('.ft-upload-content');
-        const fileInfo = widget.querySelector('.ft-upload-file-info');
-        const uploadStatus = widget.querySelector('.ft-upload-status');
-        const multipleFilesContainer = widget.querySelector('.ft-multiple-files');
+        const uploadContent = widget.querySelector('[data-ft-lib-upload-content]');
+        const fileInfo = widget.querySelector('[data-ft-lib-upload-file-info]');
+        const uploadStatus = widget.querySelector('[data-ft-lib-upload-status]');
+        const multipleFilesContainer = widget.querySelector('[data-ft-lib-multiple-files]');
 
         resetWidget(widget, uploadContent, fileInfo, uploadStatus, multipleFilesContainer);
     }
 
     function resetWidget(widget, uploadContent, fileInfo, uploadStatus, multipleFilesContainer) {
-        widget.classList.remove('ft-has-file', 'ft-has-multiple-files', 'ft-uploading', 'ft-dragover');
+        widget.removeAttribute('data-ft-lib-state-has-file');
+        widget.removeAttribute('data-ft-lib-state-has-multiple-files');
+        widget.removeAttribute('data-ft-lib-state-uploading');
+        widget.removeAttribute('data-ft-lib-state-dragover');
 
         if (uploadContent) uploadContent.style.display = 'flex';
         if (fileInfo) fileInfo.style.display = 'none';
@@ -329,14 +353,14 @@
     }
 
     function setWidgetUploadingState(widget, isUploading, statusText) {
-        const uploadContent = widget.querySelector('.ft-upload-content');
-        const fileInfo = widget.querySelector('.ft-upload-file-info');
-        const uploadStatus = widget.querySelector('.ft-upload-status');
-        const multipleFilesContainer = widget.querySelector('.ft-multiple-files');
-        const statusMainText = widget.querySelector('.ft-upload-status-main');
+        const uploadContent = widget.querySelector('[data-ft-lib-upload-content]');
+        const fileInfo = widget.querySelector('[data-ft-lib-upload-file-info]');
+        const uploadStatus = widget.querySelector('[data-ft-lib-upload-status]');
+        const multipleFilesContainer = widget.querySelector('[data-ft-lib-multiple-files]');
+        const statusMainText = widget.querySelector('[data-ft-lib-upload-status-main]');
 
         if (isUploading) {
-            widget.classList.add('ft-uploading');
+            widget.setAttribute('data-ft-lib-state-uploading', '');
 
             if (uploadContent) uploadContent.style.display = 'none';
             if (fileInfo) fileInfo.style.display = 'none';
@@ -347,12 +371,12 @@
                 statusMainText.textContent = statusText;
             }
         } else {
-            widget.classList.remove('ft-uploading');
+            widget.removeAttribute('data-ft-lib-state-uploading');
 
             if (uploadStatus) uploadStatus.style.display = 'none';
 
-            const hasFile = widget.classList.contains('ft-has-file');
-            const hasMultipleFiles = widget.classList.contains('ft-has-multiple-files');
+            const hasFile = widget.hasAttribute('data-ft-lib-state-has-file');
+            const hasMultipleFiles = widget.hasAttribute('data-ft-lib-state-has-multiple-files');
 
             if (hasMultipleFiles) {
                 if (multipleFilesContainer) multipleFilesContainer.style.display = 'block';
@@ -385,7 +409,7 @@
         const errorMessages = [];
 
         errorTypes.forEach(errorType => {
-            const errorMessage = form.getAttribute(`data-ft-validation-${errorType.toLowerCase().replace('_', '-')}`);
+            const errorMessage = form.getAttribute(`data-ft-lib-validation-${errorType.toLowerCase().replace('_', '-')}`);
             if (errorMessage) {
                 errorMessages.push(errorMessage);
             } else {
@@ -924,7 +948,7 @@
         },
 
         getMultipleFileStatus: function(form) {
-            return form.getAttribute('data-ft-multiple-files') === 'true';
+            return form.getAttribute('data-ft-lib-multiple-files') === 'true';
         }
     };
 
