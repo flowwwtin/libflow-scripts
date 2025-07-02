@@ -132,10 +132,23 @@
         const removeButton = uploadWidget.querySelector('[data-ft-lib-remove-file]');
 
         const multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-element="multiple-files"]');
-        
+
         if (allowMultiple && !multipleFilesContainer) {
             console.warn('LibFlow: Multiple files enabled but [data-ft-lib-element="multiple-files"] container not found in markup');
         }
+
+        // Set initial visibility state on load
+        if (fileInput) fileInput.style.display = 'none';
+        if (uploadContent) uploadContent.style.display = 'flex';
+        if (fileInfo) fileInfo.style.display = 'none';
+        if (uploadStatus) uploadStatus.style.display = 'none';
+        if (multipleFilesContainer) multipleFilesContainer.style.display = 'none';
+        if (progressContainer) progressContainer.style.display = 'none';
+        if (validationTextElement) validationTextElement.style.display = 'none';
+
+        // Hide file item template
+        const fileItemTemplate = uploadWidget.querySelector('[data-ft-lib-file-item-template]');
+        if (fileItemTemplate) fileItemTemplate.style.display = 'none';
 
         uploadWidget.addEventListener('click', function(e) {
             if (uploadWidget.getAttribute('data-ft-lib-state') !== 'uploading' &&
