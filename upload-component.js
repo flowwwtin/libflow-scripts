@@ -180,6 +180,12 @@
                 const dt = new DataTransfer();
 
                 if (allowMultiple) {
+                    // Add existing files first
+                    const existingFiles = fileInput._libflowFiles || [];
+                    for (let i = 0; i < existingFiles.length; i++) {
+                        dt.items.add(existingFiles[i]);
+                    }
+                    // Then add new files
                     for (let i = 0; i < files.length; i++) {
                         dt.items.add(files[i]);
                     }
@@ -187,6 +193,7 @@
                     dt.items.add(files[0]);
                 }
 
+                fileInput.setAttribute('data-ft-lib-programmatic-change', 'true');
                 fileInput.files = dt.files;
 
                 const changeEvent = new Event('change', { bubbles: true });
@@ -194,8 +201,13 @@
             }
         });
 
-        fileInput.addEventListener('change', function() {
-            const files = Array.from(fileInput.files);
+        fileInput.addEventListener('change', function(e) {
+            // Prevent recursive calls when we programmatically update the file input
+            if (fileInput._libflowUpdating) {
+                return;
+            }
+
+            const newFiles = Array.from(e.target.files);
 
             if (progressContainer) {
                 progressContainer.style.display = 'none';
@@ -203,9 +215,35 @@
             elements.destinationField.value = '';
             hideValidationError(validationTextElement);
 
-            if (files.length > 0) {
+            if (newFiles.length > 0) {
                 if (allowMultiple) {
-                    updateWidgetWithMultipleFiles(uploadWidget, files, {
+                    // Check if this change was triggered by our drag/drop or programmatic file addition
+                    const isFromDropOrProgrammatic = e.target.hasAttribute('data-ft-lib-programmatic-change');
+
+                    let allFiles;
+                    if (isFromDropOrProgrammatic) {
+                        // This change was from drag/drop or our own code, use files as-is
+                        allFiles = newFiles;
+                        e.target.removeAttribute('data-ft-lib-programmatic-change');
+                    } else {
+                        // This is from user clicking file input, combine with existing
+                        const existingFiles = fileInput._libflowFiles || [];
+                        allFiles = [...existingFiles, ...newFiles];
+
+                        // Update the file input with combined files (but don't trigger another change event)
+                        const dt = new DataTransfer();
+                        allFiles.forEach(file => dt.items.add(file));
+
+                        // Set flag to prevent recursive calls
+                        fileInput._libflowUpdating = true;
+                        e.target.files = dt.files;
+                        fileInput._libflowUpdating = false;
+                    }
+
+                    // Store current files for next addition
+                    fileInput._libflowFiles = allFiles;
+
+                    updateWidgetWithMultipleFiles(uploadWidget, allFiles, {
                         uploadContent,
                         fileInfo,
                         uploadStatus,
@@ -215,7 +253,7 @@
                         multipleFilesContainer
                     });
                 } else {
-                    updateWidgetWithFile(uploadWidget, files[0], {
+                    updateWidgetWithFile(uploadWidget, newFiles[0], {
                         uploadContent,
                         fileInfo,
                         uploadStatus,
@@ -225,6 +263,9 @@
                     });
                 }
             } else {
+                if (allowMultiple) {
+                    fileInput._libflowFiles = [];
+                }
                 resetWidget(uploadWidget, uploadContent, fileInfo, uploadStatus, multipleFilesContainer);
             }
         });
@@ -234,6 +275,7 @@
                 e.stopPropagation();
 
                 fileInput.value = '';
+                fileInput._libflowFiles = [];
                 elements.destinationField.value = '';
 
                 resetWidget(uploadWidget, uploadContent, fileInfo, uploadStatus, multipleFilesContainer);
@@ -267,7 +309,7 @@
         widget.removeAttribute('data-ft-lib-state');
         widget.removeAttribute('data-ft-lib-state');
 
-        if (uploadContent) uploadContent.style.display = 'none';
+        if (uploadContent) uploadContent.style.display = 'flex';
         if (fileInfo) fileInfo.style.display = 'none';
         if (uploadStatus) uploadStatus.style.display = 'none';
         if (multipleFilesContainer) {
@@ -338,6 +380,11 @@
 
         const dt = new DataTransfer();
         files.forEach(file => dt.items.add(file));
+
+        // Update our internal file storage
+        fileInput._libflowFiles = files;
+
+        fileInput.setAttribute('data-ft-lib-programmatic-change', 'true');
         fileInput.files = dt.files;
 
         const changeEvent = new Event('change', { bubbles: true });
@@ -349,6 +396,7 @@
         const destinationField = widget.closest('form').querySelector('[data-ft-lib-field="destination"]');
 
         fileInput.value = '';
+        fileInput._libflowFiles = [];
         destinationField.value = '';
 
         const uploadContent = widget.querySelector('[data-ft-lib-element="upload-content"]');
@@ -398,6 +446,7 @@
             const hasMultipleFiles = widget.getAttribute('data-ft-lib-state') === 'has-multiple-files';
 
             if (hasMultipleFiles) {
+                if (uploadContent) uploadContent.style.display = 'flex';
                 if (multipleFilesContainer) multipleFilesContainer.style.display = 'flex';
             } else if (hasFile) {
                 if (fileInfo) fileInfo.style.display = 'flex';
