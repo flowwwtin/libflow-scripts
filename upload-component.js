@@ -1,4 +1,3 @@
-
 (function() {
     'use strict';
 
@@ -272,7 +271,7 @@
         if (fileInfo) fileInfo.style.display = 'none';
         if (uploadStatus) uploadStatus.style.display = 'none';
         if (multipleFilesContainer) {
-            multipleFilesContainer.style.display = 'block';
+            multipleFilesContainer.style.display = 'flex';
             updateMultipleFilesDisplay(multipleFilesContainer, files, widget);
         }
     }
@@ -399,7 +398,7 @@
             const hasMultipleFiles = widget.getAttribute('data-ft-lib-state') === 'has-multiple-files';
 
             if (hasMultipleFiles) {
-                if (multipleFilesContainer) multipleFilesContainer.style.display = 'block';
+                if (multipleFilesContainer) multipleFilesContainer.style.display = 'flex';
             } else if (hasFile) {
                 if (fileInfo) fileInfo.style.display = 'flex';
             } else {
