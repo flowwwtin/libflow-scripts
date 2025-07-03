@@ -5,6 +5,19 @@
 
     let mediaInfoInstance = null;
 
+    function emitLibFlowEvent(element, eventType, detail = {}) {
+        const event = new CustomEvent(`libflow-${eventType}`, {
+            detail: {
+                timestamp: new Date().toISOString(),
+                ...detail
+            },
+            bubbles: true,
+            cancelable: true
+        });
+        element.dispatchEvent(event);
+        console.log(`LibFlow: Emitted event 'libflow-${eventType}'`, detail);
+    }
+
     function loadMediaInfoScript() {
         return new Promise((resolve, reject) => {
             if (typeof MediaInfo !== 'undefined') {
@@ -177,6 +190,11 @@
 
             const files = e.dataTransfer.files;
             if (files.length > 0) {
+                emitLibFlowEvent(uploadWidget, 'file-drop', {
+                    files: Array.from(files).map(f => ({ name: f.name, size: f.size, type: f.type })),
+                    fileCount: files.length,
+                    multipleMode: allowMultiple
+                });
                 const dt = new DataTransfer();
 
                 if (allowMultiple) {
@@ -216,6 +234,12 @@
             hideValidationError(validationTextElement);
 
             if (newFiles.length > 0) {
+                emitLibFlowEvent(uploadWidget, 'file-selected', {
+                    files: newFiles.map(f => ({ name: f.name, size: f.size, type: f.type })),
+                    fileCount: newFiles.length,
+                    multipleMode: allowMultiple
+                });
+
                 if (allowMultiple) {
                     // Check if this change was triggered by our drag/drop or programmatic file addition
                     const isFromDropOrProgrammatic = e.target.hasAttribute('data-ft-lib-programmatic-change');
@@ -273,6 +297,10 @@
         if (removeButton) {
             removeButton.addEventListener('click', function(e) {
                 e.stopPropagation();
+
+                emitLibFlowEvent(uploadWidget, 'file-clear', {
+                    multipleMode: allowMultiple
+                });
 
                 fileInput.value = '';
                 fileInput._libflowFiles = [];
@@ -356,6 +384,12 @@
                 removeBtn.setAttribute('data-file-index', index);
                 removeBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
+                    emitLibFlowEvent(widget, 'file-remove', {
+                        fileName: file.name,
+                        fileSize: file.size,
+                        fileType: file.type,
+                        fileIndex: index
+                    });
                     removeFileFromSelection(widget, index);
                 });
             }
@@ -367,6 +401,9 @@
             clearAllBtn.setAttribute('data-ft-lib-event-bound', 'true');
             clearAllBtn.addEventListener('click', function(e) {
                 e.stopPropagation();
+                emitLibFlowEvent(widget, 'files-clear-all', {
+                    fileCount: widget.closest('form').querySelector('input[type="file"]')._libflowFiles?.length || 0
+                });
                 clearAllFiles(widget);
             });
         }
@@ -689,6 +726,12 @@
         }
 
         try {
+            emitLibFlowEvent(uploadWidget, 'upload-start', {
+                files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
+                fileCount: files.length,
+                multipleMode: allowMultiple
+            });
+
             if (progressContainer) {
                 progressContainer.style.display = 'block';
             }
@@ -709,6 +752,15 @@
 
                 const mediaData = await analyzeFileWithMediaInfo(file);
                 fileAnalyses.push({ file, mediaData });
+
+                emitLibFlowEvent(uploadWidget, 'file-analyzed', {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                    fileIndex: i,
+                    mediaData: mediaData,
+                    progress: Math.round(((i + 1) / files.length) * 20)
+                });
 
                 const analysisProgress = Math.round(((i + 1) / files.length) * 20);
                 updateProgress(progressBar, analysisProgress);
@@ -737,6 +789,15 @@
 
                 uploadedUrls.push(fileUrl);
                 console.log(`LibFlow: File ${i + 1}/${files.length} uploaded successfully: ${fileUrl}`);
+
+                emitLibFlowEvent(uploadWidget, 'file-uploaded', {
+                    fileName: file.name,
+                    fileSize: file.size,
+                    fileType: file.type,
+                    fileIndex: i,
+                    fileUrl: fileUrl,
+                    progress: Math.round(((i + 1) / files.length) * 100)
+                });
             }
 
             if (allowMultiple) {
@@ -748,12 +809,27 @@
             console.log(`LibFlow: All ${files.length} file(s) uploaded successfully`);
             updateProgress(progressBar, 100);
 
+            emitLibFlowEvent(uploadWidget, 'upload-complete', {
+                files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
+                fileCount: files.length,
+                uploadedUrls: uploadedUrls,
+                multipleMode: allowMultiple
+            });
+
             submitFormNormally(form, elements);
 
         } catch (error) {
             console.log("This is error type " + error.errorType);
 
             console.error('LibFlow: Upload failed:', error);
+
+            emitLibFlowEvent(uploadWidget, 'upload-error', {
+                error: error.message,
+                errorType: error.errorType || 'unknown',
+                isValidationError: error.isValidationError || false,
+                files: files.map(f => ({ name: f.name, size: f.size, type: f.type })),
+                fileCount: files.length
+            });
 
             // Clear selected files when upload fails
             fileInput.value = '';
@@ -774,8 +850,16 @@
             }
 
             if (error.isValidationError && error.errorTypes) {
+                emitLibFlowEvent(uploadWidget, 'validation-error', {
+                    errorTypes: error.errorTypes,
+                    files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
+                });
                 showValidationError(form, validationTextElement, error.errorTypes);
             } else if (error.isValidationError && error.errorType) {
+                emitLibFlowEvent(uploadWidget, 'validation-error', {
+                    errorTypes: [error.errorType],
+                    files: files.map(f => ({ name: f.name, size: f.size, type: f.type }))
+                });
                 showValidationError(form, validationTextElement, [error.errorType]);
             } else {
                 alert('File upload failed. Please try again.');
@@ -880,6 +964,21 @@
                         totalPercent = 40 + uploadPercent;
                     }
 
+                    // Find the upload widget to emit progress event
+                    const uploadWidget = document.querySelector(`[data-ft-lib-upload-widget]`);
+                    if (uploadWidget) {
+                        emitLibFlowEvent(uploadWidget, 'upload-progress', {
+                            fileName: file.name,
+                            fileSize: file.size,
+                            fileType: file.type,
+                            fileIndex: currentFileIndex,
+                            loaded: e.loaded,
+                            total: e.total,
+                            fileProgress: Math.round(fileUploadPercent),
+                            totalProgress: Math.round(Math.min(totalPercent, 100))
+                        });
+                    }
+
                     updateProgress(progressBar, Math.min(totalPercent, 100));
                 }
             });
@@ -950,6 +1049,11 @@
         }
 
         setSubmitButtonState(submitButton, false);
+
+        emitLibFlowEvent(uploadWidget, 'form-submit', {
+            hasFiles: form.querySelector('input[type="file"]').files.length > 0,
+            destinationValue: elements.destinationField.value
+        });
 
         setTimeout(() => {
             try {
