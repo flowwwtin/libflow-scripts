@@ -755,6 +755,19 @@
 
             console.error('LibFlow: Upload failed:', error);
 
+            // Clear selected files when upload fails
+            fileInput.value = '';
+            fileInput._libflowFiles = [];
+            destinationField.value = '';
+
+            // Reset widget to initial state
+            const uploadContent = uploadWidget.querySelector('[data-ft-lib-element="upload-content"]');
+            const fileInfo = uploadWidget.querySelector('[data-ft-lib-element="upload-file-info"]');
+            const uploadStatus = uploadWidget.querySelector('[data-ft-lib-element="upload-status"]');
+            const multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-element="multiple-files"]');
+
+            resetWidget(uploadWidget, uploadContent, fileInfo, uploadStatus, multipleFilesContainer);
+
             setWidgetUploadingState(uploadWidget, false);
             if (progressContainer) {
                 progressContainer.style.display = 'none';
