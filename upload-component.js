@@ -15,7 +15,6 @@
             cancelable: true
         });
         element.dispatchEvent(event);
-        console.log(`LibFlow: Emitted event 'libflow-${eventType}'`, detail);
     }
 
     function loadMediaInfoScript() {
@@ -39,7 +38,6 @@
         }).then(() => {
             initializeLibFlowUpload();
         }).catch(error => {
-            console.error('LibFlow: Failed to initialize MediaInfo:', error);
             initializeLibFlowUpload();
         });
     });
@@ -54,9 +52,7 @@
                 format: 'object'
             });
 
-            console.log('LibFlow: MediaInfo initialized successfully');
         } catch (error) {
-            console.error('LibFlow: MediaInfo initialization failed:', error);
             throw error;
         }
     }
@@ -80,13 +76,11 @@
             const allowMultiple = form.getAttribute('data-ft-lib-multiple-files') === 'true';
 
             if (!fileInput || !destinationField) {
-                console.warn('LibFlow: Missing required elements (file input or destination field)');
                 return;
             }
 
             if (allowMultiple) {
                 fileInput.setAttribute('multiple', 'multiple');
-                console.log('LibFlow: Multiple file upload enabled');
             }
 
             destinationField.style.display = 'none';
@@ -146,7 +140,6 @@
         const multipleFilesContainer = uploadWidget.querySelector('[data-ft-lib-element="multiple-files"]');
 
         if (allowMultiple && !multipleFilesContainer) {
-            console.warn('LibFlow: Multiple files enabled but [data-ft-lib-element="multiple-files"] container not found in markup');
         }
 
         // Set initial visibility state on load
@@ -355,7 +348,6 @@
         const clearAllBtn = container.querySelector('[data-ft-lib-clear-all-files]');
 
         if (!header || !fileList || !fileItemTemplate) {
-            console.warn('LibFlow: Missing required elements in multiple files container');
             return;
         }
 
@@ -503,7 +495,6 @@
 
     function showValidationError(form, validationTextElement, errorTypes) {
         if (!validationTextElement) {
-            console.warn('LibFlow: Could not show validation error - missing validation text element');
             return;
         }
 
@@ -517,17 +508,12 @@
             const errorMessage = form.getAttribute(`data-ft-lib-validation-${errorType.toLowerCase().replace('_', '-')}`);
             if (errorMessage) {
                 errorMessages.push(errorMessage);
-            } else {
-                console.warn('LibFlow: Missing validation message for error type:', errorType);
             }
         });
 
         if (errorMessages.length > 0) {
             validationTextElement.innerHTML = errorMessages.join('<br>');
             validationTextElement.style.display = 'block';
-            console.log('LibFlow: Showing validation errors:', errorMessages);
-        } else {
-            console.warn('LibFlow: No validation messages found for error types:', errorTypes);
         }
     }
 
@@ -540,7 +526,6 @@
 
     async function analyzeFileWithMediaInfo(file) {
         if (!mediaInfoInstance) {
-            console.warn('LibFlow: MediaInfo not available, using file.size');
             return {
                 size: file.size,
                 duration: null,
@@ -550,7 +535,6 @@
         }
 
         try {
-            console.log('LibFlow: Analyzing file with MediaInfo...');
 
             const getSize = () => file.size;
             const readChunk = (chunkSize, offset) => {
@@ -572,11 +556,9 @@
 
             const mediaData = parseMediaInfoResult(result, file);
 
-            console.log('LibFlow: MediaInfo analysis complete:', mediaData);
             return mediaData;
 
         } catch (error) {
-            console.error('LibFlow: MediaInfo analysis failed:', error);
             return {
                 size: file.size,
                 duration: null,
@@ -688,7 +670,6 @@
             }
 
         } catch (parseError) {
-            console.warn('LibFlow: Failed to parse MediaInfo result:', parseError);
         }
 
         return mediaData;
@@ -699,7 +680,6 @@
         const files = Array.from(fileInput.files);
 
         if (form.dataset.libflowProcessed === 'true') {
-            console.log('LibFlow: Form already processed, allowing normal submission');
             return;
         }
 
@@ -709,12 +689,9 @@
         hideValidationError(validationTextElement);
 
         if (files.length === 0) {
-            console.warn('LibFlow: No files selected');
             if (isUploadRequired) {
-                console.log('LibFlow: Upload is required but no files selected, preventing submission');
                 return;
             } else {
-                console.log('LibFlow: Upload is not required, submitting form normally');
                 submitFormNormally(form, elements);
                 return;
             }
@@ -741,12 +718,10 @@
 
             updateProgress(progressBar, 0);
 
-            console.log(`LibFlow: Analyzing ${files.length} file(s)...`);
             const fileAnalyses = [];
 
             for (let i = 0; i < files.length; i++) {
                 const file = files[i];
-                console.log(`LibFlow: Analyzing file ${i + 1}/${files.length}: ${file.name}`);
                 setWidgetUploadingState(uploadWidget, true, `Analyzing file ${i + 1}/${files.length}...`);
                 setSubmitButtonState(submitButton, true, `Analyzing file ${i + 1}/${files.length}...`);
 
@@ -766,13 +741,11 @@
                 updateProgress(progressBar, analysisProgress);
             }
 
-            console.log('LibFlow: Starting uploads...');
             const uploadedUrls = [];
 
             for (let i = 0; i < fileAnalyses.length; i++) {
                 const { file, mediaData } = fileAnalyses[i];
 
-                console.log(`LibFlow: Uploading file ${i + 1}/${files.length}: ${file.name}`);
                 setSubmitButtonState(submitButton, true, `Uploading file ${i + 1}/${files.length}...`);
                 setWidgetUploadingState(uploadWidget, true, `Uploading file ${i + 1}/${files.length}...`);
 
@@ -788,7 +761,6 @@
                 });
 
                 uploadedUrls.push(fileUrl);
-                console.log(`LibFlow: File ${i + 1}/${files.length} uploaded successfully: ${fileUrl}`);
 
                 emitLibFlowEvent(uploadWidget, 'file-uploaded', {
                     fileName: file.name,
@@ -806,7 +778,6 @@
                 destinationField.value = uploadedUrls[0];
             }
 
-            console.log(`LibFlow: All ${files.length} file(s) uploaded successfully`);
             updateProgress(progressBar, 100);
 
             emitLibFlowEvent(uploadWidget, 'upload-complete', {
@@ -819,9 +790,6 @@
             submitFormNormally(form, elements);
 
         } catch (error) {
-            console.log("This is error type " + error.errorType);
-
-            console.error('LibFlow: Upload failed:', error);
 
             emitLibFlowEvent(uploadWidget, 'upload-error', {
                 error: error.message,
@@ -869,10 +837,8 @@
             updateProgress(progressBar, 0);
 
             if (isUploadRequired) {
-                console.log('LibFlow: Upload is required but failed, preventing form submission');
                 return;
             } else {
-                console.log('LibFlow: Upload failed but not required, submitting form anyway');
                 submitFormNormally(form, elements);
             }
         }
@@ -897,14 +863,12 @@
 
         if (folderId) {
             requestPayload.folder_id = folderId;
-            console.log('LibFlow: Including folder ID in request:', folderId);
         }
 
         if (mediaData.mediaInfo && mediaData.mediaInfo.length < 10000) {
             requestPayload.media_info.full_analysis = mediaData.mediaInfo;
         }
 
-        console.log('LibFlow: Sending request with media info and folder ID:', requestPayload);
 
         const response = await fetch(`${LIBFLOW_API_BASE}/presigned-url`, {
             method: 'POST',
@@ -925,8 +889,6 @@
             }
 
             if (response.status === 422 && errorData.error === 'FILE_REJECTED' && errorData.reasons) {
-                console.log('LibFlow: Validation error received:', errorData);
-
                 const validationError = new Error(`File validation failed: ${errorData.reasons.join(', ')}`);
                 validationError.isValidationError = true;
                 validationError.errorTypes = errorData.reasons;
@@ -1058,13 +1020,11 @@
         setTimeout(() => {
             try {
                 if (submitButton && typeof submitButton.click === 'function') {
-                    console.log('LibFlow: Triggering submit button click');
                     submitButton.click();
                     return;
                 }
 
                 if (typeof form.requestSubmit === 'function') {
-                    console.log('LibFlow: Using requestSubmit()');
                     form.requestSubmit();
                     return;
                 }
@@ -1073,7 +1033,6 @@
                 const action = form.action || window.location.href;
                 const method = (form.method || 'POST').toUpperCase();
 
-                console.log('LibFlow: Submitting via fetch');
 
                 if (method === 'GET') {
                     const url = new URL(action, window.location.origin);
@@ -1098,17 +1057,14 @@
                             document.close();
                         }
                     }).catch(error => {
-                        console.error('LibFlow: Form submission failed:', error);
                         HTMLFormElement.prototype.submit.call(form);
                     });
                 }
 
             } catch (error) {
-                console.error('LibFlow: All submission methods failed:', error);
                 try {
                     HTMLFormElement.prototype.submit.call(form);
                 } catch (finalError) {
-                    console.error('LibFlow: Even native submit failed:', finalError);
                     alert('Form submission failed. Please try submitting manually.');
                 }
             }
